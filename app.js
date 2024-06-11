@@ -26,12 +26,12 @@ app.use(express.urlencoded({ extended: true }));
 app.use(methodOverride("_method"));
 app.engine("ejs", ejsMate);
 app.use(express.static(path.join(__dirname, "public/css")));
+app.use(express.static(path.join(__dirname, "public/js")));
 
 //INDEX ROUTER
 
 app.get("/listings", async (req, res) => {
   let allListings = await Listing.find({});
-
   res.render("listings/index.ejs", { allListings });
 });
 
@@ -44,9 +44,9 @@ app.get("/listings/new", (req, res) => {
 //Create Route
 
 app.post("/listings", async (req, res) => {
-  const newListing = new Listing(...req.body.listing);
+  const newListing = new Listing({ ...req.body.listing });
   await newListing.save();
-  res.redirect("/listings/view");
+  res.redirect("/listings");
 });
 
 //edit Route
