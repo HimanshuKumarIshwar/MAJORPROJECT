@@ -8,7 +8,8 @@ const ejsMate = require("ejs-mate");
 const { log } = require("console");
 const wrapAsync = require("./utils/wrapAsync.js");
 const ExpressError = require("./utils/ExpressError.js");
-const { listingSchema } = require("./schema.js");
+const { listingSchema, reviewSchema } = require("./schema.js");
+const Review = require("./models/review.js");
 
 const MONGOOSE_URL = "mongodb://127.0.0.1:27017/wanderlust";
 
@@ -46,6 +47,16 @@ const validateListing = (req, res, next) => {
   }
 };
 
+const validateReview = (req, res, next) => {
+  let { error } = reviewSchema.validate(req.body);
+  if (error) {
+    let errMsg = error.details.map((el) => el.message).join(",");
+    throw new ExpressError(400, errMsg);
+  } else {
+    next();
+  }
+};
+
 //INDEX ROUTER
 
 app.get(
@@ -68,7 +79,7 @@ app.get(
   "/listings/:id",
   wrapAsync(async (req, res) => {
     const { id } = req.params;
-    const listings = await Listing.findById(id);
+    const listings = await Listing.findById(id).populate("reviews");
 
     res.render("listings/view", { listings });
   })
@@ -116,6 +127,35 @@ app.delete(
     let { id } = req.params;
     await Listing.findByIdAndDelete(id);
     res.redirect("/listings");
+  })
+);
+
+//Reviews Part
+//post Review Route
+
+app.post(
+  "/listings/:id/reviews",
+  validateReview,
+  wrapAsync(async (req, res) => {
+    const listing = await Listing.findById(req.params.id);
+    const review = new Review(req.body.review);
+    listing.reviews.push(review);
+    await review.save();
+    await listing.save();
+    res.redirect(`/listings/${listing._id}`);
+  })
+);
+
+//post delete Rooute
+app.delete(
+  "/listings/:id/reviews/:reviewId",
+  wrapAsync(async (req, res) => {
+    let { id, reviewId } = req.params;
+    await Listing.findByIdAndUpdate(id, { $pull: { reviews: reviewId } });
+
+    await Review.findByIdAndDelete(reviewId);
+
+    res.redirect(`/listings/${id}`);
   })
 );
 

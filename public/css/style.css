@@ -64,7 +64,7 @@ align-items: center;
 
 /* Cards */
 
-.card{
+.listing-card{
     border: none !important;
     margin-bottom: 5rem !important;
 
