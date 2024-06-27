@@ -1,3 +1,6 @@
+if (process.env.NODE_ENV != "production") {
+  require("dotenv").config({});
+}
 const express = require("express");
 const app = express();
 const mongoose = require("mongoose");
@@ -8,15 +11,14 @@ const ExpressError = require("./utils/ExpressError.js");
 const listingRouter = require("./routes/listing.js");
 const reviewRouter = require("./routes/review.js");
 const userRouter = require("./routes/user.js");
-
 const session = require("express-session");
+const MongoStore = require("connect-mongo");
 const flash = require("connect-flash");
 const passport = require("passport");
 const LocalStrategy = require("passport-local");
 const User = require("./models/user.js");
 
-const MONGOOSE_URL = "mongodb://127.0.0.1:27017/wanderlust";
-
+const ATLAS_URL = process.env.ATLASDB_URL;
 main()
   .then(() => {
     console.log("connected DB");
@@ -26,9 +28,8 @@ main()
   });
 
 async function main() {
-  await mongoose.connect(MONGOOSE_URL);
+  await mongoose.connect(ATLAS_URL);
 }
-
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 app.use(express.urlencoded({ extended: true }));
@@ -37,8 +38,20 @@ app.engine("ejs", ejsMate);
 app.use(express.static(path.join(__dirname, "public/css")));
 app.use(express.static(path.join(__dirname, "public/js")));
 
+const store = MongoStore.create({
+  mongoUrl: ATLAS_URL,
+  crypto: {
+    secret: process.env.SECRET,
+  },
+  touchAfter: 244 * 3600,
+});
+
+store.on("error", () => {
+  console.log("ERROR in Mongo SESSION Store", err);
+});
 const sessionOption = {
-  secret: "mysupersecretstring",
+  store,
+  secret: process.env.SECRET,
   resave: false,
   saveUninitialized: true,
   cookie: {
@@ -48,9 +61,9 @@ const sessionOption = {
   },
 };
 
-app.get("/", (req, res) => {
-  res.send("Root is Working");
-});
+// app.get("/", (req, res) => {
+//   res.send("Root is Working");
+// });
 
 app.use(session(sessionOption));
 app.use(flash());
@@ -68,15 +81,6 @@ app.use((req, res, next) => {
   res.locals.curUser = req.user;
   next();
 });
-
-// app.get("/demoUser", async (req, res) => {
-//   let fakerUser = new User({
-//     email: "student@gmail.com",
-//     username: "delta-student",
-//   });
-//   let registeredUser = await User.register(fakerUser, "helloworld");
-//   res.send(registeredUser);
-// });
 
 app.use("/listings", listingRouter);
 app.use("/listings/:id/reviews", reviewRouter);
